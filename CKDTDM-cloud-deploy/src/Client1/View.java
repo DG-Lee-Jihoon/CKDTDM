@@ -56,7 +56,7 @@ public class View extends JPanel {
             client = new Socket(destination, port);
             in  = new BufferedReader(new InputStreamReader(client.getInputStream()));
             out = new DataOutputStream(client.getOutputStream());
-            out.writeBytes("@$0|00000|0|Client|Send|1|123$" + message + "$@");
+            out.writeBytes("@$0|0000|0|Client|Send|1|123$" + message + "$@");
             out.write(13); out.write(10); out.flush();
 
             String inLine = in.readLine();

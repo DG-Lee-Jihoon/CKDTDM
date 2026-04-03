@@ -74,7 +74,7 @@ public class ActPark extends JPanel {
         opt_sv = new Choice();
         opt_sv.setBounds(120, 20, 120, 25);
         opt_sv.addItem(" ");
-        for (int i = 1; i <= 5; i++) opt_sv.addItem("Server " + i);
+        for (int i = 1; i <= 4; i++) opt_sv.addItem("Server " + i);
 
         txt_esp = new JTextField();
         txt_esp.setBounds(250, 50, 120, 25);
@@ -158,7 +158,7 @@ public class ActPark extends JPanel {
             out = new DataOutputStream(client.getOutputStream());
             txa_info.append("Đã kết nối đến " + destination + ":" + port + "\n");
             String message = getMessage();
-            out.writeBytes("@$0|00000|" + lamportS + "|Client|Send|1|123$" + message + "$@");
+            out.writeBytes("@$0|0000|" + lamportS + "|Client|Send|1|123$" + message + "$@");
             out.write(13); out.write(10); out.flush();
             String inLine = in.readLine();
             txa_info.append("Thông báo: " + inLine + "\n\n");

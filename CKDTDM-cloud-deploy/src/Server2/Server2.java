@@ -147,13 +147,13 @@ public class Server2 {
 
                     //  xu ly thong tin Synchronymed va ket thuc vong tron ao
 
-                    if (type.equals("Synchronymed") && (start == 4)) {
+                    if (type.equals("Synchronymed") && (start == 3)) {
                         System.out.print("Hoan tat giao dich. Ket thuc vong tron ao.\n\n");
                     }
 
                     //xu ly thong tin updated va quay vong
 
-                    if (type.equals("Updated") && (start == 4)) {
+                    if (type.equals("Updated") && (start == 3)) {
                         int stt = start;
                         System.out.print("Ket thuc qua trinh cap nhat, kiem tra dong bo hoa TT va Quay vong nguoc.\n\n");
                         stt = 1;
@@ -182,7 +182,7 @@ public class Server2 {
 
                     //  xu ly thong tin temped va quay vong
 
-                    if (type.equals("Temped") && (start == 4)) {
+                    if (type.equals("Temped") && (start == 3)) {
                         int stt = start;
                         System.out.print("Ket thuc tao bang tam, cap nhat CSDL chinh Quay vong nguoc.\n\n");
                         stt = 1;
@@ -209,7 +209,7 @@ public class Server2 {
 
 
                     //quay vong nguoc lai cua thong diep locked
-                    if (type.equals("Locked") && (start == 4)) {
+                    if (type.equals("Locked") && (start == 3)) {
                         int stt = start;
                         System.out.print("Ket thuc khoa truong du lieu, tao bang tam va Quay vong nguoc.\n\n");
                         stt = 1;
@@ -280,7 +280,7 @@ public class Server2 {
                     }
 
                     // xu ly thong tin locked
-                    if (type.equals("Locked") && (start != 4)) {
+                    if (type.equals("Locked") && (start != 3)) {
                         System.out.print("Chuyen thong diep, thuc hien khoa truong DL.\n\n");
                         start++;
                         try {
@@ -304,7 +304,7 @@ public class Server2 {
                     }
 
                     //    	 Xu ly thong diep temp
-                    if (type.equals("Temped") && (start != 4)) {
+                    if (type.equals("Temped") && (start != 3)) {
                         System.out.print("Chuyen thong diep, thuc hien tao bang tam CSDL.\n\n");
                         start++;
                         try {
@@ -329,7 +329,7 @@ public class Server2 {
                     }
 
                     //         xu ly thong tin update
-                    if (type.equals("Updated") && (start != 4)) {
+                    if (type.equals("Updated") && (start != 3)) {
                         System.out.print("Chuyen thong diep, thuc hien cap nhat bang chinh CSDL.\n\n");
                         start++;
                         try {
@@ -353,7 +353,7 @@ public class Server2 {
                     }//dong if
 
                     //      	 Xu ly thong diep synchronym
-                    if (type.equals("Synchronymed") && (start != 4)) {
+                    if (type.equals("Synchronymed") && (start != 3)) {
                         System.out.print("Chuyen thong diep, kiem tra qua trinh dong bo hoa cac tien trinh.\n\n");
                         start++;
                         try {
