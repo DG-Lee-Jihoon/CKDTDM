@@ -1,0 +1,10 @@
+D:\bt\server\src\main\java\com\parking\ParkingSyncApplication.java
+D:\bt\server\src\main\java\com\parking\service\VehicleService.java
+D:\bt\server\src\main\java\com\parking\config\WebSocketConfig.java
+D:\bt\server\src\main\java\com\parking\repository\VehicleRepository.java
+D:\bt\server\src\main\java\com\parking\config\AppConfig.java
+D:\bt\server\src\main\java\com\parking\model\SyncEvent.java
+D:\bt\server\src\main\java\com\parking\controller\SyncController.java
+D:\bt\server\src\main\java\com\parking\controller\VehicleController.java
+D:\bt\server\src\main\java\com\parking\model\Vehicle.java
+D:\bt\server\src\main\java\com\parking\sync\SyncService.java

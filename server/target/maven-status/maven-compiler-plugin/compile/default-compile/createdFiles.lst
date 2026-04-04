@@ -1,0 +1,14 @@
+com\parking\model\SyncEvent$Phase.class
+com\parking\model\SyncEvent$Builder.class
+com\parking\model\Vehicle.class
+com\parking\sync\SyncService$1.class
+com\parking\model\Vehicle$TrangThai.class
+com\parking\service\VehicleService.class
+com\parking\repository\VehicleRepository.class
+com\parking\config\WebSocketConfig.class
+com\parking\ParkingSyncApplication.class
+com\parking\model\SyncEvent.class
+com\parking\config\AppConfig.class
+com\parking\sync\SyncService.class
+com\parking\controller\VehicleController.class
+com\parking\controller\SyncController.class

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parking Sync — Quản lý bãi xe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #12161f;
+    --surface2: #1a1f2e;
+    --border: #232840;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --green: #22d987;
+    --amber: #f5a623;
+    --red: #f25555;
+    --text: #e8eaf6;
+    --muted: #6b7394;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: blink 2s infinite;
+  }
+
+  @keyframes blink {
+    0%,100%{opacity:1} 50%{opacity:0.3}
+  }
+
+  .server-tabs {
+    display: flex;
+    gap: 6px;
+  }
+
+  .server-tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .server-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .server-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .server-tab.offline { opacity: 0.4; }
+  .server-tab .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .server-tab.offline .dot { background: var(--red); }
+
+  /* ---- LAYOUT ---- */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    height: calc(100vh - 58px);
+  }
+
+  /* ---- SIDEBAR ---- */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  /* Form */
+  .form-wrap { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+
+  .form-row { margin-bottom: 10px; }
+
+  .form-row label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .form-row input, .form-row select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 11px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .form-row input:focus, .form-row select:focus {
+    border-color: var(--accent);
+  }
+
+  .form-row select option { background: var(--surface2); }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .btn {
+    width: 100%;
+    padding: 9px;
+    border-radius: 6px;
+    border: none;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a7ae8; }
+  .btn-success { background: var(--green); color: #0b0e14; margin-top: 6px; }
+  .btn-success:hover { opacity: .85; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-sm {
+    width: auto; padding: 4px 10px;
+    font-size: 11px; border-radius: 4px;
+  }
+
+  /* Sync Log */
+  .sync-log-header {
+    padding: 12px 20px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .sync-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 10px;
+  }
+
+  .log-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    border-left: 3px solid transparent;
+    animation: slideIn .2s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity:0; transform:translateX(-6px); }
+    to   { opacity:1; transform:translateX(0); }
+  }
+
+  .log-LOCKED  { border-color: var(--amber); background: rgba(245,166,35,.08); color: var(--amber); }
+  .log-TEMPED  { border-color: var(--accent2); background: rgba(124,92,252,.08); color: var(--accent2); }
+  .log-UPDATED { border-color: var(--accent); background: rgba(79,142,247,.08); color: var(--accent); }
+  .log-SYNCED  { border-color: var(--green); background: rgba(34,217,135,.08); color: var(--green); }
+  .log-error   { border-color: var(--red); background: rgba(242,85,85,.08); color: var(--red); }
+  .log-info    { border-color: var(--border); color: var(--muted); }
+
+  .log-time { opacity: .6; }
+
+  /* ---- MAIN ---- */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+
+  .toolbar {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .search-box {
+    flex: 1;
+    max-width: 280px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .search-box:focus { border-color: var(--accent); }
+
+  .filter-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 11px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+  }
+
+  .stats {
+    margin-left: auto;
+    display: flex;
+    gap: 16px;
+  }
+
+  .stat {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .stat-num { font-size: 18px; font-weight: 600; line-height: 1; }
+  .stat-num.green { color: var(--green); }
+  .stat-num.amber { color: var(--amber); }
+  .stat-label { color: var(--muted); margin-top: 2px; }
+
+  /* Table */
+  .table-wrap { flex: 1; overflow-y: auto; padding: 0 24px 24px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody tr.highlight {
+    animation: rowPulse 1.5s ease;
+  }
+
+  @keyframes rowPulse {
+    0%   { background: rgba(79,142,247,.25); }
+    100% { background: transparent; }
+  }
+
+  td {
+    padding: 11px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .badge-CHO_XE   { background: rgba(34,217,135,.15); color: var(--green); border: 1px solid rgba(34,217,135,.3); }
+  .badge-CO_XE    { background: rgba(79,142,247,.15); color: var(--accent); border: 1px solid rgba(79,142,247,.3); }
+  .badge-BAO_TRI  { background: rgba(245,166,35,.15); color: var(--amber); border: 1px solid rgba(245,166,35,.3); }
+  .badge-DAT_TRUOC{ background: rgba(124,92,252,.15); color: var(--accent2); border: 1px solid rgba(124,92,252,.3); }
+
+  .server-badge {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .action-btns { display: flex; gap: 6px; }
+
+  .btn-edit  { background: rgba(79,142,247,.15); color: var(--accent); border: 1px solid rgba(79,142,247,.3); }
+  .btn-del   { background: rgba(242,85,85,.1); color: var(--red); border: 1px solid rgba(242,85,85,.25); }
+  .btn-edit:hover { background: var(--accent); color: #fff; }
+  .btn-del:hover  { background: var(--red); color: #fff; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .empty-icon { font-size: 36px; margin-bottom: 12px; opacity: .4; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 400px;
+    animation: modalIn .2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity:0; transform:scale(.95); }
+    to   { opacity:1; transform:scale(1); }
+  }
+
+  .modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 18px;
+    color: var(--text);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .modal-actions .btn { width: auto; flex: 1; }
+
+  /* Phase indicator */
+  .phase-bar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .phase-step {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background .3s;
+  }
+
+  .phase-step.active-LOCKED  { background: var(--amber); }
+  .phase-step.active-TEMPED  { background: var(--accent2); }
+  .phase-step.active-UPDATED { background: var(--accent); }
+  .phase-step.active-SYNCED  { background: var(--green); }
+
+  /* Toast */
+  .toast-container {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 999;
+  }
+
+  .toast {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: var(--sans);
+    border-left: 4px solid;
+    background: var(--surface);
+    border-color: var(--border);
+    animation: toastIn .25s ease;
+    min-width: 240px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  }
+
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error   { border-color: var(--red); color: var(--red); }
+  .toast.info    { border-color: var(--accent); color: var(--accent); }
+
+  @keyframes toastIn {
+    from { opacity:0; transform:translateY(8px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    PARKING SYNC
+  </div>
+  <div class="server-tabs" id="serverTabs"></div>
+</header>
+
+<!-- Phase bar -->
+<div class="phase-bar">
+  <div class="phase-step" id="phase-LOCKED" title="Locked"></div>
+  <div class="phase-step" id="phase-TEMPED" title="Temped"></div>
+  <div class="phase-step" id="phase-UPDATED" title="Updated"></div>
+  <div class="phase-step" id="phase-SYNCED" title="Synced"></div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">Thêm / Chỉnh sửa xe</div>
+
+    <div class="form-wrap">
+      <input type="hidden" id="editId">
+      <div class="form-row">
+        <label>Biển số *</label>
+        <input type="text" id="fBienSo" placeholder="VD: 51A-12345">
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Khu *</label>
+          <input type="text" id="fKhu" placeholder="VD: A">
+        </div>
+        <div class="form-row">
+          <label>Lô *</label>
+          <input type="text" id="fLo" placeholder="VD: 01">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Hãng xe *</label>
+        <input type="text" id="fHangXe" placeholder="VD: Toyota">
+      </div>
+      <div class="form-row">
+        <label>Trạng thái</label>
+        <select id="fTrangThai">
+          <option value="CHO_XE">🟢 Chỗ trống</option>
+          <option value="CO_XE">🔵 Có xe</option>
+          <option value="BAO_TRI">🟡 Bảo trì</option>
+          <option value="DAT_TRUOC">🟣 Đặt trước</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Ghi chú</label>
+        <input type="text" id="fGhiChu" placeholder="Tuỳ chọn...">
+      </div>
+      <button class="btn btn-primary" onclick="submitForm()">＋ Thêm xe</button>
+      <button class="btn btn-success" id="btnUpdate" style="display:none" onclick="updateForm()">✓ Cập nhật</button>
+    </div>
+
+    <div class="sync-log-header">
+      <span>Sync Log</span>
+      <button onclick="clearLog()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;">Xoá</button>
+    </div>
+    <div class="sync-log" id="syncLog"></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="toolbar">
+      <input class="search-box" type="text" id="searchInput"
+             placeholder="Tìm biển số, hãng xe, khu..."
+             oninput="filterTable()">
+      <select class="filter-select" id="filterTrangThai" onchange="filterTable()">
+        <option value="">Tất cả trạng thái</option>
+        <option value="CHO_XE">Chỗ trống</option>
+        <option value="CO_XE">Có xe</option>
+        <option value="BAO_TRI">Bảo trì</option>
+        <option value="DAT_TRUOC">Đặt trước</option>
+      </select>
+      <select class="filter-select" id="filterKhu" onchange="filterTable()">
+        <option value="">Tất cả khu</option>
+      </select>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num green" id="statTotal">0</div>
+          <div class="stat-label">Tổng xe</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num amber" id="statCoXe">0</div>
+          <div class="stat-label">Đang đỗ</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Biển số</th>
+            <th>Hãng xe</th>
+            <th>Khu</th>
+            <th>Lô</th>
+            <th>Trạng thái</th>
+            <th>Ghi chú</th>
+            <th>Server</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody id="vehicleTable"></tbody>
+      </table>
+      <div id="emptyState" class="empty" style="display:none">
+        <div class="empty-icon">🚗</div>
+        <div>Chưa có dữ liệu xe</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal xác nhận xóa -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-title">⚠ Xác nhận xóa</div>
+    <p style="color:var(--muted);font-size:13px">Xe <strong id="deleteTarget" style="color:var(--red)"></strong> sẽ bị xoá khỏi tất cả 4 server.</p>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--surface2);color:var(--text)" onclick="closeModal()">Huỷ</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Xoá</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// =====================================================
+// CONFIG — đổi IP/port tuỳ môi trường
+// Mỗi máy sửa danh sách SERVERS theo IP thật
+// =====================================================
+const SERVERS = [
+  { id: 1, url: 'http://localhost:8081',       label: 'SV1' },
+  { id: 2, url: 'http://192.168.1.227:8081',   label: 'SV2' },
+  { id: 3, url: 'http://192.168.1.223:8081',   label: 'SV3' },
+];
+
+let activeServer = SERVERS[0];
+let stompClients = {};
+let allVehicles = [];
+let deleteId = null;
+let serverStatus = {};
+
+// =====================================================
+// INIT
+// =====================================================
+window.onload = async () => {
+  renderServerTabs();
+  await checkAllServers();
+  await loadVehicles();
+  connectWebSockets();
+  setInterval(checkAllServers, 15000);
+};
+
+// =====================================================
+// SERVER TABS
+// =====================================================
+function renderServerTabs() {
+  const container = document.getElementById('serverTabs');
+  container.innerHTML = SERVERS.map(sv => `
+    <button class="server-tab ${sv.id === activeServer.id ? 'active' : ''}"
+            id="tab-${sv.id}"
+            onclick="switchServer(${sv.id})">
+      <span class="dot"></span>${sv.label}
+    </button>
+  `).join('');
+}
+
+async function checkAllServers() {
+  for (const sv of SERVERS) {
+    try {
+      const res = await fetch(`${sv.url}/api/vehicles/status`, { signal: AbortSignal.timeout(2500) });
+      serverStatus[sv.id] = res.ok;
+    } catch {
+      serverStatus[sv.id] = false;
+    }
+    const tab = document.getElementById(`tab-${sv.id}`);
+    if (tab) tab.classList.toggle('offline', !serverStatus[sv.id]);
+  }
+}
+
+function switchServer(id) {
+  activeServer = SERVERS.find(s => s.id === id);
+  document.querySelectorAll('.server-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${id}`).classList.add('active');
+  loadVehicles();
+  addLog('info', `Đã chuyển sang Server ${id}`);
+}
+
+// =====================================================
+// LOAD VEHICLES
+// =====================================================
+async function loadVehicles() {
+  try {
+    const res = await fetch(`${activeServer.url}/api/vehicles`);
+    const json = await res.json();
+    allVehicles = json.data || [];
+    renderTable(allVehicles);
+    updateKhuFilter();
+    updateStats();
+  } catch (e) {
+    addLog('error', `Không thể tải dữ liệu từ Server ${activeServer.id}`);
+  }
+}
+
+// =====================================================
+// RENDER TABLE
+// =====================================================
+const TRANG_THAI_LABEL = {
+  CHO_XE: 'Chỗ trống', CO_XE: 'Có xe', BAO_TRI: 'Bảo trì', DAT_TRUOC: 'Đặt trước'
+};
+
+function renderTable(data) {
+  const tbody = document.getElementById('vehicleTable');
+  const empty = document.getElementById('emptyState');
+
+  if (!data.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = data.map(v => `
+    <tr id="row-${v.id}">
+      <td><strong style="font-family:var(--mono);color:var(--text)">${v.bienSo}</strong></td>
+      <td>${v.hangXe}</td>
+      <td><span style="color:var(--accent)">${v.khu}</span></td>
+      <td>${v.lo}</td>
+      <td><span class="badge badge-${v.trangThai}">${TRANG_THAI_LABEL[v.trangThai] || v.trangThai}</span></td>
+      <td style="color:var(--muted)">${v.ghiChu || '—'}</td>
+      <td><span class="server-badge">SV${v.updatedByServer || '?'}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn btn-sm btn-edit" onclick="editVehicle(${v.id})">Sửa</button>
+          <button class="btn btn-sm btn-del" onclick="askDelete(${v.id},'${v.bienSo}')">Xoá</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// =====================================================
+// FILTER
+// =====================================================
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const tt = document.getElementById('filterTrangThai').value;
+  const khu = document.getElementById('filterKhu').value;
+
+  const filtered = allVehicles.filter(v => {
+    const matchQ = !q || [v.bienSo, v.hangXe, v.khu, v.lo].some(f => f?.toLowerCase().includes(q));
+    const matchTT = !tt || v.trangThai === tt;
+    const matchKhu = !khu || v.khu === khu;
+    return matchQ && matchTT && matchKhu;
+  });
+  renderTable(filtered);
+  updateStats(filtered);
+}
+
+function updateStats(data = allVehicles) {
+  document.getElementById('statTotal').textContent = data.length;
+  document.getElementById('statCoXe').textContent = data.filter(v => v.trangThai === 'CO_XE').length;
+}
+
+function updateKhuFilter() {
+  const sel = document.getElementById('filterKhu');
+  const current = sel.value;
+  const khus = [...new Set(allVehicles.map(v => v.khu))].sort();
+  sel.innerHTML = `<option value="">Tất cả khu</option>` +
+    khus.map(k => `<option value="${k}" ${k===current?'selected':''}>${k}</option>`).join('');
+}
+
+// =====================================================
+// FORM SUBMIT
+// =====================================================
+async function submitForm() {
+  const data = getFormData();
+  if (!data) return;
+
+  try {
+    const res = await fetch(`${activeServer.url}/api/vehicles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Thêm xe thành công — đang đồng bộ...', 'success');
+      resetForm();
+      await loadVehicles();
+    } else {
+      showToast(json.message, 'error');
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối server', 'error');
+  }
+}
+
+async function updateForm() {
+  const id = document.getElementById('editId').value;
+  const data = getFormData();
+  if (!data || !id) return;
+
+  try {
+    const res = await fetch(`${activeServer.url}/api/vehicles/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Cập nhật thành công — đang đồng bộ...', 'success');
+      resetForm();
+      await loadVehicles();
+    } else {
+      showToast(json.message, 'error');
+    }
+  } catch (e) {
+    showToast('Lỗi kết nối server', 'error');
+  }
+}
+
+function editVehicle(id) {
+  const v = allVehicles.find(x => x.id === id);
+  if (!v) return;
+  document.getElementById('editId').value = v.id;
+  document.getElementById('fBienSo').value = v.bienSo;
+  document.getElementById('fKhu').value = v.khu;
+  document.getElementById('fLo').value = v.lo;
+  document.getElementById('fHangXe').value = v.hangXe;
+  document.getElementById('fTrangThai').value = v.trangThai;
+  document.getElementById('fGhiChu').value = v.ghiChu || '';
+  document.querySelector('.btn-primary').style.display = 'none';
+  document.getElementById('btnUpdate').style.display = 'block';
+}
+
+function resetForm() {
+  ['editId','fBienSo','fKhu','fLo','fHangXe','fGhiChu'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fTrangThai').value = 'CHO_XE';
+  document.querySelector('.btn-primary').style.display = 'block';
+  document.getElementById('btnUpdate').style.display = 'none';
+}
+
+function getFormData() {
+  const bienSo = document.getElementById('fBienSo').value.trim();
+  const khu = document.getElementById('fKhu').value.trim();
+  const lo = document.getElementById('fLo').value.trim();
+  const hangXe = document.getElementById('fHangXe').value.trim();
+
+  if (!bienSo || !khu || !lo || !hangXe) {
+    showToast('Vui lòng điền đủ thông tin bắt buộc', 'error');
+    return null;
+  }
+  return {
+    bienSo,
+    khu,
+    lo,
+    hangXe,
+    trangThai: document.getElementById('fTrangThai').value,
+    ghiChu: document.getElementById('fGhiChu').value.trim() || null
+  };
+}
+
+// =====================================================
+// DELETE
+// =====================================================
+function askDelete(id, bienSo) {
+  deleteId = id;
+  document.getElementById('deleteTarget').textContent = bienSo;
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('deleteModal').classList.remove('open');
+  deleteId = null;
+}
+
+async function confirmDelete() {
+  if (!deleteId) return;
+  const idToDelete = deleteId;
+  closeModal();
+  try {
+    const res = await fetch(`${activeServer.url}/api/vehicles/${idToDelete}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Đã xoá xe — đang đồng bộ...', 'info');
+      await loadVehicles();
+    } else {
+      showToast(json.message, 'error');
+    }
+  } catch {
+    showToast('Lỗi kết nối server', 'error');
+  }
+}
+
+// =====================================================
+// WEBSOCKET — kết nối tất cả 4 server
+// =====================================================
+function connectWebSockets() {
+  SERVERS.forEach(sv => {
+    try {
+      const sock = new SockJS(`${sv.url}/ws`);
+      const client = Stomp.over(sock);
+      client.debug = null;
+      client.connect({}, () => {
+        addLog('info', `WebSocket kết nối Server ${sv.id}`);
+        client.subscribe('/topic/sync', (msg) => {
+          const event = JSON.parse(msg.body);
+          handleSyncEvent(event, sv.id);
+        });
+      }, () => {
+        addLog('error', `WebSocket mất kết nối Server ${sv.id}`);
+      });
+      stompClients[sv.id] = client;
+    } catch (e) {
+      addLog('error', `Không thể WS Server ${sv.id}`);
+    }
+  });
+}
+
+function handleSyncEvent(event, fromSvId) {
+  const { phase, vehicle, operation, eventId } = event;
+  const short = eventId ? eventId.substring(0, 8) : '?';
+
+  // Cập nhật phase bar nếu từ active server
+  if (fromSvId === activeServer.id || event.fromServerId === activeServer.id) {
+    updatePhaseBar(phase);
+  }
+
+  // Log
+  const opLabel = { CREATE:'[+]', UPDATE:'[~]', DELETE:'[-]' }[operation] || '[?]';
+  const bienSo = vehicle?.bienSo || '';
+  addLog(phase, `${opLabel} ${bienSo} • ${phase} • SV${event.fromServerId} • #${short}`);
+
+  // Reload nếu SYNCED hoặc UPDATED
+  if (phase === 'SYNCED' || phase === 'UPDATED') {
+    if (fromSvId === activeServer.id || event.fromServerId === activeServer.id) {
+      loadVehicles().then(() => {
+        if (vehicle?.id) highlightRow(vehicle.id);
+      });
+    }
+  }
+}
+
+function updatePhaseBar(phase) {
+  const phases = ['LOCKED','TEMPED','UPDATED','SYNCED'];
+  const idx = phases.indexOf(phase);
+  phases.forEach((p, i) => {
+    const el = document.getElementById(`phase-${p}`);
+    if (el) el.className = `phase-step ${i <= idx ? 'active-'+phase : ''}`;
+  });
+  // Reset sau 3s
+  setTimeout(() => {
+    phases.forEach(p => {
+      const el = document.getElementById(`phase-${p}`);
+      if (el) el.className = 'phase-step';
+    });
+  }, 3000);
+}
+
+function highlightRow(id) {
+  const row = document.getElementById(`row-${id}`);
+  if (row) {
+    row.classList.remove('highlight');
+    void row.offsetWidth;
+    row.classList.add('highlight');
+  }
+}
+
+// =====================================================
+// SYNC LOG
+// =====================================================
+const PHASE_ICONS = { LOCKED:'🔒', TEMPED:'📝', UPDATED:'✅', SYNCED:'🔄', error:'❌', info:'ℹ' };
+
+function addLog(phase, message) {
+  const log = document.getElementById('syncLog');
+  const now = new Date().toLocaleTimeString('vi');
+  const icon = PHASE_ICONS[phase] || '•';
+  const div = document.createElement('div');
+  div.className = `log-item log-${phase}`;
+  div.innerHTML = `<span class="log-time">${now}</span> ${icon} ${message}`;
+  log.insertBefore(div, log.firstChild);
+  // Giữ tối đa 80 dòng
+  while (log.children.length > 80) log.removeChild(log.lastChild);
+}
+
+function clearLog() {
+  document.getElementById('syncLog').innerHTML = '';
+}
+
+// =====================================================
+// TOAST
+// =====================================================
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+</script>
+</body>
+</html>
